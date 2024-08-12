@@ -1,40 +1,60 @@
-import pyaudio as pa
-import wave
-import 
-from time import sleep
+import pygame
+import numpy as np
+from scipy.fft import fft
+import sounddevice as sd
+import time
 from threading import Thread
 
-def playAudio(audio_file):
-    wf = wave.open(audio_file, "rb")
-    p = pa.PyAudio()
-
-    stream = p.open(format=p.get_format_from_width(wf.getsampwidth()), channels=wf.getnchannels(), rate=wf.getframerate(), output=True)
-
-    chunk_size = 1024
-    data = wf.readframes(chunk_size)
-    n = 0
-    while True:
-        stream.write(data)
-        data = wf.readframes(chunk_size)
-    print("stopped")
-    sleep(10)
-
-    
-    stream.stop_stream()
-    stream.close()
-
-    p.terminate()
-
-
-playAudio("wavs/test.wav")
-
-
 class MusicPlayer:
-    def __init__(self) -> None:
-        self.songplaying = ""
-        self.wf, self.stream = None, None
+    def __init__(self, func_return):
+        # init variables
+        self.__exit, self.__isPlaying = False, False
+        self.current_file_playing = ""
+        self.__func_return = func_return
+
+        # init pygame
+        pygame.mixer.init()
+
+        # init threads
+        self.__playerThread = Thread(target=self._playerT)
+
 
     def play(self, song_path):
-        # LOADING THE SONG
-        wf = wave.open(audio_)
+        self.__isPlaying = True
+        self.current_file_playing = song_path
+        pygame.mixer.music.load(self.current_file_playing)
+        pygame.mixer.music.play()
+        self.__playerThread.start()
 
+    def _playerT(self): # T for running as thread
+        while True:
+            while not self.__exit:
+                # EQUALIZER SHIT HERE BRO
+                if self.__isPlaying:
+                    time.sleep(1)
+                else:
+                    pass
+                self.__func_return(pygame.mixer.music.get_pos(), pygame.mixer.music.get_volume())
+            if not self.repeat:
+                pygame.mixer.music.stop()
+                break
+            else:
+                pygame.mixer.music.rewind()
+            
+
+    def pause_unpause(self):
+        if self.__isPlaying:
+            pygame.mixer.music.pause()
+            self.__isPlaying = False
+        elif self.__isPlaying == False:
+            pygame.mixer.music.unpause()
+            self.__isPlaying = True
+
+
+    def set_volume(self, volume):
+        pygame.mixer.music.set_volume(volume)
+
+    def stop(self):
+       pygame.mixer.music.stop()
+       self.__exit = True
+       self.__isPlaying = False

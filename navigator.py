@@ -1,3 +1,4 @@
+import player
 import curses
 from curses import wrapper
 from time import sleep, monotonic
@@ -11,19 +12,49 @@ class musicplayer:
         self.__min_x = min_x
         self.__min_y = min_y
 
+        self.player = player.MusicPlayer(self.grabSongInfo)
+
+        self.stdscr = None
+
+        self.time = 0
+        self.volume = 1
+        self.song_name = ""
+
+    def _drawOtherThings(self, y, x, h, w):
+        slot_area = 30
+        time_area = 6
+        # TimeStamp
+        self.stdscr.addstr(y + 1, x + 2, "─" * (w - 4))
+
+        # printing the song player information
+        self.stdscr.addstr(y, x + 2, " " + "Playing: sewerslvt - NewLove."[:slot_area] + " ")
+        self.stdscr.addstr(y, x + w - 8, " " + "00:15"[:6] + " ")
+
     def _drawBox(self, stdscr, y, x, h, w):
+        self.stdscr = stdscr
         # LOCAL COORDS OF THE BOX
         X = x + w
         Y = y + h
 
-        stdscr.addstr(y, x, "┌" + "─" * (w - 2) + "┐")
+        # Drawing the box
+        self.stdscr.addstr(y, x, "┌" + "─" * (w - 2) + "┐")
         for n in range(h - 2):
-            stdscr.addstr(y + n + 1, x, "│" + " " * (w - 2) + "│")
-        stdscr.addstr(Y - 1, x, "└" + "─" * (w - 2) + "┘")
+            self.stdscr.addstr(y + n + 1, x, "│" + " " * (w - 2) + "│")
+        self.stdscr.addstr(Y - 1, x, "└" + "─" * (w - 2) + "┘")
 
+
+        # Drawing Other things
+        self._drawOtherThings(y, x, h, w)
 
     def printSubWin(self, stdscr, y, x, h, w):
         self._drawBox(stdscr, y, x, h, w)
+
+    def grabSongInfo(self, time, volume):
+        self.time = time
+        self.volume = volume
+
+    def play(self, name):
+        self.player.play(name)
 
 
 
@@ -50,7 +81,7 @@ class navigator:
             self.current_path = ""
             path = list(pathlib.Path(self.current_path).iterdir())
         
-        files = [[p, curses.color_pair(0)] for p in path if p.is_file()]
+        files = [[p, curses.color_pair(0)] for p in path if (p.is_file() and (p.name[-3:] == "wav" or p.name[-3:] == "mp3"))]
         folders = [[p, curses.color_pair(1)] for p in path if p.is_dir()]
 
         files.sort()
@@ -125,6 +156,9 @@ class navigator:
             self.current_path = str(pathlib.Path(self.current_path) / self.current_fileSelected[0])
             self.resetValues()
 
+        elif self.current_fileSelected[1] == curses.color_pair(0):
+            pass
+    
         
 class equalizer:
     def __init__(self, min_y, min_x, isStatic):
@@ -150,7 +184,7 @@ class equalizer:
 class MainWindow:
     def __init__(self, fps=30) -> None:
         # Start curses mode
-        curses.initscr()
+        #curses.initscr()
         
         # Enable color mode
 
