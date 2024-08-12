@@ -1,6 +1,8 @@
 import pyaudio as pa
 import wave
+import 
 from time import sleep
+from threading import Thread
 
 def playAudio(audio_file):
     wf = wave.open(audio_file, "rb")
@@ -25,3 +27,14 @@ def playAudio(audio_file):
 
 
 playAudio("wavs/test.wav")
+
+
+class MusicPlayer:
+    def __init__(self) -> None:
+        self.songplaying = ""
+        self.wf, self.stream = None, None
+
+    def play(self, song_path):
+        # LOADING THE SONG
+        wf = wave.open(audio_)
+

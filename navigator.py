@@ -38,7 +38,7 @@ class navigator:
         self.filesNumber = 0
         self.current_fileIndex = 0 # the index of the item that shows the first in the list.
         self.current_index = 0 # the index of where the cursor is.
-        self.current_path = "/etc"
+        self.current_path = ""
         self.current_fileSelected = None
 
     def _getFilesFromPath(self, path) -> list:
@@ -47,7 +47,7 @@ class navigator:
 
             path = list(pathlib.Path(self.current_path).iterdir())
         except FileNotFoundError:
-            self.current_path = "/"
+            self.current_path = ""
             path = list(pathlib.Path(self.current_path).iterdir())
         
         files = [[p, curses.color_pair(0)] for p in path if p.is_file()]
@@ -79,21 +79,27 @@ class navigator:
         
 
         # This lists all the items in the parent folder
-        self.items = [["..", curses.color_pair(1)]] + [[i[0].name[:w - 2], i[1]] for i in self._getFilesFromPath(self.current_path)]
+        self.items = [["..", curses.color_pair(2)]] + [[i[0].name, i[1]] for i in self._getFilesFromPath(self.current_path)]
         self.items = self.items[self.current_fileIndex: h + self.current_fileIndex - 2] # this takes only the ones that should be shown
 
         for i, f in enumerate(self.items):
-            stdscr.addstr(y + i + 1, x + 1, f + " " * (w - 2 - len(f)), curses.A_REVERSE if i == self.current_index else 0)
             if i == self.current_index:
-                stdscr.addstr(y + i + 1, x + 1, f + " " * (w - 2 - len(f)), curses.A_REVERSE)
+                stdscr.addstr(y + i + 1, x + 1, f[0][:w - 2] + " " * (w - 2 - len(f[0])), curses.A_REVERSE)
                 self.current_fileSelected = f
             else:
-                stdscr.addstr(y + i + 1, x + 1, f + " " * (w - 2 - len(f)))
+                stdscr.addstr(y + i + 1, x + 1, f[0][:w - 2] + " " * (w - 2 - len(f[0])), f[1])
         
+        #stdscr.addstr(10, 10, str(pathlib.Path(self.current_path) / self.current_fileSelected[0]))
 
     # FOR USER
     #
     #
+
+    def resetValues(self):
+        self.filesNumber = 0
+        self.current_fileIndex = 0 # the index of the item that shows the first in the list.
+        self.current_index = 0 # the index of where the cursor is.
+        self.current_fileSelected = None
 
     def printSubWin(self, stdscr, y, x, h, w):
         self._drawBox(stdscr, y, x, h, w)
@@ -105,15 +111,19 @@ class navigator:
             self.current_fileIndex -= 1
 
     def down(self):
-        if self.current_index < self.h - 3:
+        if self.current_index < self.h - 3 and self.current_index < self.filesNumber:
             self.current_index += 1
-        elif self.current_index <= self.h - 3 and self.current_fileIndex < self.filesNumber - self.h + 2:
+        elif self.current_index <= self.h - 3 and self.current_fileIndex < self.filesNumber - self.h + 3:
             self.current_fileIndex += 1
 
     def enter(self):
-        if self.current_fileSelected == "..":
-            self.current_path = str(pathlib.Path(self.current_path).parent)
-
+        if self.current_fileSelected[0] == "..":
+            self.current_path = str(pathlib.Path(self.current_path).resolve().parent)
+            self.resetValues()
+        
+        elif self.current_fileSelected[1] == curses.color_pair(1):
+            self.current_path = str(pathlib.Path(self.current_path) / self.current_fileSelected[0])
+            self.resetValues()
 
         
 class equalizer:
@@ -139,9 +149,10 @@ class equalizer:
 
 class MainWindow:
     def __init__(self, fps=30) -> None:
-        # DEFINING COLORS.
-        curses.init_pair(1, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-
+        # Start curses mode
+        curses.initscr()
+        
+        # Enable color mode
 
         self.fps = fps
         self.__on = True
@@ -166,8 +177,12 @@ class MainWindow:
     def _updateWindow(self, stdscr):
         self.__stdscr = stdscr
         self.__stdscr.nodelay(True)
-        curses.curs_set(0)
         stdscr.clear()
+
+        # Enabling color mode and defining color pairs
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_YELLOW)
 
         while self.__on:
             self._grabKey()
