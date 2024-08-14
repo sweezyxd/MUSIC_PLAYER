@@ -12,23 +12,39 @@ class musicplayer:
         self.__min_x = min_x
         self.__min_y = min_y
 
-        self.player = player.MusicPlayer(self.grabSongInfo)
+        self.player = player.MusicPlayer(1, self.grabSongInfo)
 
         self.stdscr = None
 
+        """  ↻ ◁ || ▶ ▷ ↺  """
+
         self.time = 0
-        self.volume = 1
         self.song_name = ""
+
+
+    def _timeToStr(self, time) -> str:
+        minutes = (time // 1000) // 60
+        seconds = (time // 1000) - minutes * 60
+        if minutes < 0:
+            return "00:00"
+        minutes = str(minutes)
+        seconds = str(seconds)
+        return "0" * (2 - len(minutes)) + minutes + ":" + (2 - len(seconds)) * "0" + seconds 
 
     def _drawOtherThings(self, y, x, h, w):
         slot_area = 30
         time_area = 6
         # TimeStamp
-        self.stdscr.addstr(y + 1, x + 2, "─" * (w - 4))
+        self.stdscr.addstr(y + 1, x + 4, "─" * (w - 6))
+        self.stdscr.addstr(y + 1, x + 1, "▶" if self.player.isPlaying else "||")
 
         # printing the song player information
-        self.stdscr.addstr(y, x + 2, " " + "Playing: sewerslvt - NewLove."[:slot_area] + " ")
-        self.stdscr.addstr(y, x + w - 8, " " + "00:15"[:6] + " ")
+        self.stdscr.addstr(y, x + 2, " Playing: "  + self.song_name[:slot_area] + ". ")
+
+        time = self._timeToStr(self.time)
+        full_time = self._timeToStr(self.player.get_full_lenght())
+        self.stdscr.addstr(y, x + w - 20, " " + time + " / " + full_time + " ")
+        self.stdscr.addstr(y, x + w - 50, " Volume: " + str(int(self.player.volume * 100)) + "% ")
 
     def _drawBox(self, stdscr, y, x, h, w):
         self.stdscr = stdscr
@@ -51,7 +67,7 @@ class musicplayer:
 
     def grabSongInfo(self, time, volume):
         self.time = time
-        self.volume = volume
+        self.volume = volume * 100
 
     def play(self, name):
         self.player.play(name)
@@ -147,7 +163,7 @@ class navigator:
         elif self.current_index <= self.h - 3 and self.current_fileIndex < self.filesNumber - self.h + 3:
             self.current_fileIndex += 1
 
-    def enter(self):
+    def enter(self) -> str:
         if self.current_fileSelected[0] == "..":
             self.current_path = str(pathlib.Path(self.current_path).resolve().parent)
             self.resetValues()
@@ -157,13 +173,15 @@ class navigator:
             self.resetValues()
 
         elif self.current_fileSelected[1] == curses.color_pair(0):
-            pass
+            return str(pathlib.Path(self.current_path) / self.current_fileSelected[0])
+        return None
     
         
 class equalizer:
     def __init__(self, min_y, min_x, isStatic):
 
         self.__isStatic = isStatic
+
         self.__min_x = min_x
         self.__min_y = min_y
         
@@ -195,8 +213,8 @@ class MainWindow:
 
         #initializing the sub-windows
         self.__eq = equalizer(0, 0, (True, True))
-        self.__nv = navigator(0, 0, (True, True))
         self.__mp = musicplayer(0, 0, (False, True))
+        self.__nv = navigator(0, 0, (True, True))
 
         self.__wrapperThread = Thread(target=self._wrapper)
    
@@ -236,10 +254,23 @@ class MainWindow:
         # FOR NAVIGATION
         if key == curses.KEY_UP:
             self.__nv.up()
+
         elif key == curses.KEY_DOWN:
             self.__nv.down()
+
         elif key == 10: # ENTER
-            self.__nv.enter()
+            song_name = self.__nv.enter()
+            if song_name != None:
+                self.__mp.play(song_name)
+
+        elif key == ord(" "):
+                self.__mp.player.pause_unpause()
+
+        elif key == ord("=") or key == ord("+"):
+            self.__mp.player.higher_volume()
+        elif key == ord("-"):
+            self.__mp.player.lower_volume()
+        
         
         # FOR PLAYING/PAUSING ETC
         elif key == curses.KEY_LEFT: # go backwards
