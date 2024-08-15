@@ -16,7 +16,7 @@ class musicplayer:
 
         self.stdscr = None
 
-        """  ↻ ◁ || ▶ ▷ ↺  """
+        """  ↻ ◁ || ⏸ ▶ ↺  """
 
         self.time = 0
         self.song_name = ""
@@ -36,7 +36,9 @@ class musicplayer:
         time_area = 6
         # TimeStamp
         self.stdscr.addstr(y + 1, x + 4, "─" * (w - 6))
-        self.stdscr.addstr(y + 1, x + 1, "▶" if self.player.isPlaying else "||")
+        
+
+        self.stdscr.addstr(y + 1, x + 2, "▶" if self.player.isPlaying == False else "⏸")
 
         # printing the song player information
         self.stdscr.addstr(y, x + 2, " Playing: "  + self.song_name[:slot_area] + ". ")
@@ -83,6 +85,7 @@ class navigator:
 
         # For navigating through folders
         self.filesNumber = 0
+        self.current_file_playing = ""
         self.current_fileIndex = 0 # the index of the item that shows the first in the list.
         self.current_index = 0 # the index of where the cursor is.
         self.current_path = ""
@@ -130,11 +133,14 @@ class navigator:
         self.items = self.items[self.current_fileIndex: h + self.current_fileIndex - 2] # this takes only the ones that should be shown
 
         for i, f in enumerate(self.items):
+            text = f[0]
+            if str(pathlib.Path(self.current_path) / f[0]) == self.current_file_playing:
+                text = "▷ " + text
             if i == self.current_index:
-                stdscr.addstr(y + i + 1, x + 1, f[0][:w - 2] + " " * (w - 2 - len(f[0])), curses.A_REVERSE)
+                stdscr.addstr(y + i + 1, x + 1, text[:w - 2] + " " * (w - 2 - len(f[0])), curses.A_REVERSE)
                 self.current_fileSelected = f
             else:
-                stdscr.addstr(y + i + 1, x + 1, f[0][:w - 2] + " " * (w - 2 - len(f[0])), f[1])
+                stdscr.addstr(y + i + 1, x + 1, text[:w - 2] + " " * (w - 2 - len(f[0])), f[1])
         
         #stdscr.addstr(10, 10, str(pathlib.Path(self.current_path) / self.current_fileSelected[0]))
 
@@ -148,7 +154,8 @@ class navigator:
         self.current_index = 0 # the index of where the cursor is.
         self.current_fileSelected = None
 
-    def printSubWin(self, stdscr, y, x, h, w):
+    def printSubWin(self, stdscr, y, x, h, w, current_file_playing):
+        self.current_file_playing = current_file_playing
         self._drawBox(stdscr, y, x, h, w)
 
     def up(self):
@@ -163,7 +170,7 @@ class navigator:
         elif self.current_index <= self.h - 3 and self.current_fileIndex < self.filesNumber - self.h + 3:
             self.current_fileIndex += 1
 
-    def enter(self) -> str:
+    def enter(self) -> list[str]:
         if self.current_fileSelected[0] == "..":
             self.current_path = str(pathlib.Path(self.current_path).resolve().parent)
             self.resetValues()
@@ -173,7 +180,13 @@ class navigator:
             self.resetValues()
 
         elif self.current_fileSelected[1] == curses.color_pair(0):
-            return str(pathlib.Path(self.current_path) / self.current_fileSelected[0])
+            songs = []
+            for f in self.items:
+                if f[1] == curses.color_pair(0): # curses.pair_color(0) indicates that the item is a file and not a folder
+                    songs.append(str(pathlib.Path(self.current_path) / f[0]))
+            song_index = songs.index(str(pathlib.Path(self.current_path) / self.current_fileSelected[0]))
+            return songs[song_index:] + songs[:song_index]
+
         return None
     
         
@@ -259,9 +272,9 @@ class MainWindow:
             self.__nv.down()
 
         elif key == 10: # ENTER
-            song_name = self.__nv.enter()
-            if song_name != None:
-                self.__mp.play(song_name)
+            song_list = self.__nv.enter()
+            if song_list != None:
+                self.__mp.play(song_list)
 
         elif key == ord(" "):
                 self.__mp.player.pause_unpause()
@@ -290,7 +303,7 @@ class MainWindow:
 
         self.__eq.printSubWin(s, 0, 1, sY - 3, int(sX / 1.5))
         self.__mp.printSubWin(s, sY - 3, 1, 3, int(sX / 1.5))
-        self.__nv.printSubWin(s, 0, int(sX / 1.5) + 1, sY, sX - int(sX/1.5) - 1)
+        self.__nv.printSubWin(s, 0, int(sX / 1.5) + 1, sY, sX - int(sX/1.5) - 1, self.__mp.player.current_file_playing)
 
 
     def start(self):

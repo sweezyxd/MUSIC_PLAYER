@@ -8,11 +8,14 @@ from threading import Thread
 class MusicPlayer:
     def __init__(self, volume, func_return):
         # init variables
+        
         self.__exit, self.isPlaying = False, False
-        self.repeat = True
+        self.repeat = 2
         self.current_file_playing = ""
+        self.songs_list = []
         self.__func_return = func_return
-        self.current_song_lenght = 0
+        self.current_song_length = 0
+        self.index = 0
 
         self.volume = volume
 
@@ -23,44 +26,63 @@ class MusicPlayer:
         self.__playerThread = Thread(target=self._playerT)
 
 
-    def play(self, song_path):
+    def play(self, songs_paths):
         try:
-            self.current_song_lenght = pygame.mixer.Sound(song_path).get_length()
+            self.isPlaying, self.__exit = False, True
+            while True:
+                if not self.__playerThread.is_alive():
+                    self.songs_list = songs_paths
+                    self.current_file_playing = self.songs_list[0]
+                    self.index = 0
+                    self.__playerThread = Thread(target=self._playerT)
+                    self.__playerThread.start()
+                    break
+            
+
         except FileNotFoundError:
-            self.current_song_lenght = 0
-            """ HERE HANDLE ERRORS AND RESET THE PLAYER IF THE SONG DOESNT PLAY"""
-        self.isPlaying = True
-        self.current_file_playing = song_path
+            self.current_song_length = 0
+
+
+    def _playSong(self):
         pygame.mixer.music.load(self.current_file_playing)
         pygame.mixer.music.set_volume(self.volume)
         pygame.mixer.music.play()
-        try:
-            self.__playerThread.start()
-        except RuntimeError:
-            pass
-
+        self.current_song_length = pygame.mixer.Sound(self.current_file_playing).get_length() * 1000
+        self.isPlaying, self.__exit = True, False
+        
+            
     def _playerT(self): # T for running as thread
-        while True:
+        self._playSong()
+        self.index = 1
+        while not self.__exit:
             while not self.__exit: 
                 # EQUALIZER SHIT HERE BRO
                 if self.isPlaying:
                     time.sleep(.1)
-
-                elif pygame.mixer.music.get_pos == -1:
-                    break
-            
                 else:
                     time.sleep(.1)
+
+                if pygame.mixer.music.get_pos() < 0:
+                    break
+            
                 self.__func_return(pygame.mixer.music.get_pos(), pygame.mixer.music.get_volume())
 
-            if not self.repeat:
+            if self.repeat == 0 and self.isPlaying:
                 pygame.mixer.music.stop()
                 self.__exit = True
                 break
-            else:
-                pygame.mixer.music.load(self.current_file_playing)
-                pygame.mixer.music.play()
+
+            if self.repeat == 1 and self.isPlaying:
+                self.index = 0
+                self._playSong()
             
+            elif self.repeat == 2 and self.isPlaying:
+                self.current_file_playing = self.songs_list[self.index]
+                self._playSong()
+                self.index += 1
+                
+                if self.index == len(self.songs_list):
+                    self.index = 0
 
     def pause_unpause(self) -> None:
         if self.isPlaying:
@@ -76,16 +98,16 @@ class MusicPlayer:
 
     def lower_volume(self) -> None:
         if self.volume > 0:
-            self.volume = round(self.volume - .1, 4)
+            self.volume = round(self.volume - .01, 4)
             pygame.mixer.music.set_volume(self.volume)
     
     def higher_volume(self) -> None:
         if self.volume < 1:
-            self.volume = round(self.volume + .1, 4)
+            self.volume = round(self.volume + .01, 4)
             pygame.mixer.music.set_volume(self.volume)
     
     def get_full_lenght(self) -> int:
-        return int(self.current_song_lenght)
+        return int(self.current_song_length)
 
     def stop(self) -> None:
        pygame.mixer.music.stop()
